@@ -64,6 +64,11 @@
         "icon": "$(request-changes)"
       },
       {
+        "command": "jj.openResourceView",
+        "title": "Open resource view",
+        "category": "Jujutsu"
+      },
+      {
         "command": "jj.openFileInWorkingCopyEditor",
         "title": "Open file in working copy",
         "category": "Jujutsu",
@@ -371,6 +376,10 @@
         },
         {
           "command": "jj.openDiffEditor",
+          "when": "false"
+        },
+        {
+          "command": "jj.openResourceView",
           "when": "false"
         },
         {

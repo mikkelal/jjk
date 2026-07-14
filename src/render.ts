@@ -1,7 +1,11 @@
 import * as vscode from "vscode";
 import path from "path";
 import { toJJUri } from "./uri";
-import type { Change, FileStatus } from "./types";
+import type {
+  Change,
+  FileStatus,
+  ResourceViewCommandArgs,
+} from "./types";
 import type { RepoState } from "./services/RepoState";
 
 export interface RenderData {
@@ -65,13 +69,14 @@ function getResourceStateCommand(
   }
   return {
     title: "Open",
-    command: "vscode.diff",
-    arguments: [
+    command: "jj.openResourceView",
+    arguments: [{
       beforeUri,
       afterUri,
-      (fileStatus.renamedFrom ? `${fileStatus.renamedFrom} => ` : "") +
+      title:
+        (fileStatus.renamedFrom ? `${fileStatus.renamedFrom} => ` : "") +
         `${fileStatus.file} ${diffTitleSuffix}`,
-    ],
+    } satisfies ResourceViewCommandArgs],
   };
 }
 

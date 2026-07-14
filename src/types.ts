@@ -9,6 +9,12 @@ export type FileStatus = {
   renamedFrom?: string;
 };
 
+export type ResourceViewCommandArgs = {
+  beforeUri: import("vscode").Uri;
+  afterUri: import("vscode").Uri;
+  title: string;
+};
+
 export interface Change {
   changeId: string;
   commitId: string;

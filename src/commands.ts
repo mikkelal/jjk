@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import type { ResourceViewCommandArgs } from "./types";
 
 type RegisterScoped = <A extends { dispose(): unknown }>(
   acquire: () => A,
@@ -11,6 +12,10 @@ export interface InitCommandHandlers {
   ) => unknown;
   readonly openFileEditor: (uri: vscode.Uri) => unknown;
   readonly openDiffEditor: (uri: vscode.Uri) => unknown;
+  readonly openResourceView: (
+    args: ResourceViewCommandArgs,
+    preserveFocus?: boolean,
+  ) => unknown;
   readonly restoreResourceState: (
     ...resourceStates: vscode.SourceControlResourceState[]
   ) => unknown;
@@ -85,6 +90,12 @@ export async function registerInitCommands(
     vscode.commands.registerCommand(
       "jj.openDiffEditor",
       handlers.openDiffEditor,
+    ),
+  );
+  await registerScoped(() =>
+    vscode.commands.registerCommand(
+      "jj.openResourceView",
+      handlers.openResourceView,
     ),
   );
   await registerScoped(() =>

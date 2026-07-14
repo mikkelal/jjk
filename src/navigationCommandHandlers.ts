@@ -20,6 +20,7 @@ import { getActiveTextEditorDiff, pathEquals } from "./utils";
 import { getParams, toJJUri } from "./uri";
 import { provideOriginalResource } from "./jjUtils";
 import { OperationTreeItem } from "./operationLogTreeView";
+import type { ResourceViewCommandArgs } from "./types";
 
 const getCurrentRev = (uri: vscode.Uri): string => {
   if (uri.scheme !== "jj") {
@@ -123,6 +124,7 @@ export const createNavigationInitHandlers = (
   | "openFileResourceState"
   | "openFileEditor"
   | "openDiffEditor"
+  | "openResourceView"
   | "refreshGraphWebview"
   | "newGraphWebview"
   | "selectGraphWebviewRepo"
@@ -200,6 +202,34 @@ export const createNavigationInitHandlers = (
       }),
       "Failed to open diff",
     );
+  },
+  openResourceView: (
+    { beforeUri, afterUri, title }: ResourceViewCommandArgs,
+  ) => {
+    const activeInput =
+      vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+    const isActiveDiff =
+      activeInput instanceof vscode.TabInputTextDiff &&
+      activeInput.original.toString() === beforeUri.toString() &&
+      activeInput.modified.toString() === afterUri.toString();
+
+    const showOptions: vscode.TextDocumentShowOptions = {
+      preserveFocus: true,
+      preview: true,
+      viewColumn: vscode.ViewColumn.Active,
+    };
+    const openEffect =
+      isActiveDiff
+        ? executeCommand("vscode.open", afterUri, showOptions, title)
+        : executeCommand(
+            "vscode.diff",
+            beforeUri,
+            afterUri,
+            title,
+            showOptions,
+          );
+
+    return deps.runExtensionEffect(openEffect, "Failed to open resource");
   },
   refreshGraphWebview: () =>
     deps.runExtensionEffect(
