@@ -21,6 +21,10 @@ import { getParams, toJJUri } from "./uri";
 import { provideOriginalResource } from "./jjUtils";
 import { OperationTreeItem } from "./operationLogTreeView";
 import type { ResourceViewCommandArgs } from "./types";
+import {
+  getDefaultResourceView,
+  setDefaultResourceView,
+} from "./resourceViewPreference";
 
 const getCurrentRev = (uri: vscode.Uri): string => {
   if (uri.scheme !== "jj") {
@@ -125,6 +129,8 @@ export const createNavigationInitHandlers = (
   | "openFileEditor"
   | "openDiffEditor"
   | "openResourceView"
+  | "openFileByDefault"
+  | "openDiffByDefault"
   | "refreshGraphWebview"
   | "newGraphWebview"
   | "selectGraphWebviewRepo"
@@ -212,6 +218,14 @@ export const createNavigationInitHandlers = (
       activeInput instanceof vscode.TabInputTextDiff &&
       activeInput.original.toString() === beforeUri.toString() &&
       activeInput.modified.toString() === afterUri.toString();
+    const isActiveFile =
+      activeInput instanceof vscode.TabInputText &&
+      activeInput.uri.toString() === afterUri.toString();
+    const view = isActiveDiff
+      ? "file"
+      : isActiveFile
+        ? "diff"
+        : getDefaultResourceView();
 
     const showOptions: vscode.TextDocumentShowOptions = {
       preserveFocus: true,
@@ -219,7 +233,7 @@ export const createNavigationInitHandlers = (
       viewColumn: vscode.ViewColumn.Active,
     };
     const openEffect =
-      isActiveDiff
+      view === "file"
         ? executeCommand("vscode.open", afterUri, showOptions, title)
         : executeCommand(
             "vscode.diff",
@@ -231,6 +245,22 @@ export const createNavigationInitHandlers = (
 
     return deps.runExtensionEffect(openEffect, "Failed to open resource");
   },
+  openFileByDefault: () =>
+    deps.runExtensionEffect(
+      Effect.tryPromise({
+        try: () => setDefaultResourceView("file"),
+        catch: toError,
+      }),
+      "Failed to change the default resource view",
+    ),
+  openDiffByDefault: () =>
+    deps.runExtensionEffect(
+      Effect.tryPromise({
+        try: () => setDefaultResourceView("diff"),
+        catch: toError,
+      }),
+      "Failed to change the default resource view",
+    ),
   refreshGraphWebview: () =>
     deps.runExtensionEffect(
       (() => {

@@ -69,6 +69,18 @@
         "category": "Jujutsu"
       },
       {
+        "command": "jj.openFileByDefault",
+        "title": "Open File on First Click",
+        "category": "Jujutsu",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "jj.openDiffByDefault",
+        "title": "Open Diff on First Click",
+        "category": "Jujutsu",
+        "icon": "$(diff)"
+      },
+      {
         "command": "jj.openFileInWorkingCopyEditor",
         "title": "Open file in working copy",
         "category": "Jujutsu",
@@ -284,6 +296,16 @@
       ],
       "scm/title": [
         {
+          "command": "jj.openFileByDefault",
+          "when": "scmProvider == jj && jj.resourceView.default == diff",
+          "group": "navigation@2"
+        },
+        {
+          "command": "jj.openDiffByDefault",
+          "when": "scmProvider == jj && jj.resourceView.default == file",
+          "group": "navigation@2"
+        },
+        {
           "command": "jj.refresh",
           "when": "scmProvider == jj",
           "group": "navigation"
@@ -380,6 +402,14 @@
         },
         {
           "command": "jj.openResourceView",
+          "when": "false"
+        },
+        {
+          "command": "jj.openFileByDefault",
+          "when": "false"
+        },
+        {
+          "command": "jj.openDiffByDefault",
           "when": "false"
         },
         {

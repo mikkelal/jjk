@@ -42,6 +42,7 @@ import {
 } from "./effectRunners";
 import { makeRepoLifecycle } from "./repoLifecycle";
 import { initializeExtensionViews } from "./extensionViews";
+import { initializeResourceViewPreference } from "./resourceViewPreference";
 
 export async function activate(context: vscode.ExtensionContext) {
   const vscodeLayer = VscodeLive(context);
@@ -87,6 +88,8 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   logger.info("Extension activated");
+
+  await initializeResourceViewPreference(context);
 
   const customFakeEditorPath = await extensionRuntime.runPromise(
     getConfigurationValue<string | null>("jjk", "fakeEditorPath"),

@@ -16,6 +16,8 @@ export interface InitCommandHandlers {
     args: ResourceViewCommandArgs,
     preserveFocus?: boolean,
   ) => unknown;
+  readonly openFileByDefault: () => unknown;
+  readonly openDiffByDefault: () => unknown;
   readonly restoreResourceState: (
     ...resourceStates: vscode.SourceControlResourceState[]
   ) => unknown;
@@ -96,6 +98,18 @@ export async function registerInitCommands(
     vscode.commands.registerCommand(
       "jj.openResourceView",
       handlers.openResourceView,
+    ),
+  );
+  await registerScoped(() =>
+    vscode.commands.registerCommand(
+      "jj.openFileByDefault",
+      handlers.openFileByDefault,
+    ),
+  );
+  await registerScoped(() =>
+    vscode.commands.registerCommand(
+      "jj.openDiffByDefault",
+      handlers.openDiffByDefault,
     ),
   );
   await registerScoped(() =>
