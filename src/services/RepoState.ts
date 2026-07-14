@@ -8,6 +8,8 @@ import type {
   JJCliError,
   JJImmutableError,
   RepositoryDataError,
+  CustomViewState,
+  CustomViewConfig,
 } from "../types";
 import { JJCli } from "./JJCli";
 import type { ExtensionResources } from "./ExtensionResources";
@@ -18,7 +20,9 @@ import {
   getStatus,
   getFileList,
   getShow,
+  getCustomViewFileStatuses,
 } from "./Repository";
+import { getFolderConfigurationValue } from "./Vscode";
 
 export interface RepoState {
   operationId: string | undefined;
@@ -27,6 +31,7 @@ export interface RepoState {
   conflictedFilesByChange: Map<string, Set<string>>;
   trackedFiles: Set<string>;
   parentShowResults: Map<string, Show>;
+  customViews: CustomViewState[];
 }
 
 export class RepoStateRef extends Context.Tag("RepoStateRef")<
@@ -41,14 +46,15 @@ export const emptyRepoState: RepoState = {
   conflictedFilesByChange: new Map(),
   trackedFiles: new Set(),
   parentShowResults: new Map(),
+  customViews: [],
 };
 
 export function computeNewState(
-  _current: RepoState,
   operationId: string,
   status: RepositoryStatus,
   trackedFilesList: string[],
   parentShowResults: { changeId: string; show: Show }[],
+  customViews: CustomViewState[],
   repositoryRoot: string,
 ): RepoState {
   const newTrackedFiles = new Set<string>();
@@ -83,8 +89,54 @@ export function computeNewState(
     conflictedFilesByChange: newConflictedFilesByChange,
     trackedFiles: newTrackedFiles,
     parentShowResults: newParentShowResultsMap,
+    customViews,
   };
 }
+
+const getCustomViewConfigs = (
+  repositoryRoot: string,
+): Effect.Effect<CustomViewConfig[], never, Vscode> =>
+  Effect.map(
+    getFolderConfigurationValue<unknown>("jjk", "customViews", repositoryRoot),
+    (configured) => {
+      const views: unknown[] = Array.isArray(configured) ? configured : [];
+      return views
+        .filter(
+          (view): view is { name: string; from: string; to?: string } =>
+            typeof view === "object" &&
+            view !== null &&
+            "name" in view &&
+            "from" in view &&
+            typeof view.name === "string" &&
+            view.name.trim() !== "" &&
+            typeof view.from === "string" &&
+            view.from.trim() !== "" &&
+            (!("to" in view) ||
+              view.to === undefined ||
+              typeof view.to === "string"),
+        )
+        .map((view) => ({
+          name: view.name.trim(),
+          from: view.from.trim(),
+          to: view.to?.trim() || "@",
+        }));
+    },
+  );
+
+const customViewConfigsEqual = (
+  current: readonly CustomViewState[],
+  configured: readonly CustomViewConfig[],
+): boolean =>
+  current.length === configured.length &&
+  current.every((view, index) => {
+    const other = configured[index];
+    return (
+      other !== undefined &&
+      view.config.name === other.name &&
+      view.config.from === other.from &&
+      view.config.to === other.to
+    );
+  });
 
 export const checkForUpdates = (
   config: RepositoryConfig,
@@ -99,9 +151,15 @@ export const checkForUpdates = (
 > =>
   Effect.gen(function* () {
     const stateRef = yield* RepoStateRef;
+    const customViewConfigs = yield* getCustomViewConfigs(
+      config.repositoryRoot,
+    );
     const latestOpId = yield* getLatestOperationId(config);
     const current = yield* Ref.get(stateRef);
-    if (current.operationId === latestOpId) {
+    if (
+      current.operationId === latestOpId &&
+      customViewConfigsEqual(current.customViews, customViewConfigs)
+    ) {
       return null;
     }
 
@@ -115,13 +173,30 @@ export const checkForUpdates = (
       ),
       { concurrency: "unbounded" },
     );
+    const customViews = yield* Effect.all(
+      customViewConfigs.map((view) =>
+        Effect.either(getCustomViewFileStatuses(config, view)).pipe(
+          Effect.map(
+            (result): CustomViewState =>
+              result._tag === "Right"
+                ? { config: view, fileStatuses: result.right }
+                : {
+                    config: view,
+                    fileStatuses: [],
+                    error: result.left.message,
+                  },
+          ),
+        ),
+      ),
+      { concurrency: "unbounded" },
+    );
 
     const newState = computeNewState(
-      current,
       latestOpId,
       status,
       fileList,
       parentShows,
+      customViews,
       config.repositoryRoot,
     );
     yield* Ref.set(stateRef, newState);

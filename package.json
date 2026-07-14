@@ -319,7 +319,7 @@
       "scm/resourceGroup/context": [
         {
           "command": "jj.describe",
-          "when": "scmProvider == jj",
+          "when": "scmProvider == jj && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         },
         {
@@ -329,17 +329,17 @@
         },
         {
           "command": "jj.squashToWorkingCopyResourceGroup",
-          "when": "scmProvider == jj && scmResourceGroup != @",
+          "when": "scmProvider == jj && scmResourceGroup != @ && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         },
         {
           "command": "jj.restoreResourceGroup",
-          "when": "scmProvider == jj",
+          "when": "scmProvider == jj && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         },
         {
           "command": "jj.editResourceGroup",
-          "when": "scmProvider == jj && scmResourceGroup != @",
+          "when": "scmProvider == jj && scmResourceGroup != @ && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         }
       ],
@@ -351,7 +351,7 @@
         },
         {
           "command": "jj.restoreResourceState",
-          "when": "scmProvider == jj",
+          "when": "scmProvider == jj && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         },
         {
@@ -361,19 +361,19 @@
         },
         {
           "command": "jj.openFileInWorkingCopyResourceState",
-          "when": "scmProvider == jj && scmResourceGroup != @",
+          "when": "scmProvider == jj && scmResourceGroup != @ && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         },
         {
           "command": "jj.squashToWorkingCopyResourceState",
-          "when": "scmProvider == jj && scmResourceGroup != @",
+          "when": "scmProvider == jj && scmResourceGroup != @ && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         }
       ],
       "scm/resourceFolder/context": [
         {
           "command": "jj.restoreResourceState",
-          "when": "scmProvider == jj",
+          "when": "scmProvider == jj && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         },
         {
@@ -383,7 +383,7 @@
         },
         {
           "command": "jj.squashToWorkingCopyResourceState",
-          "when": "scmProvider == jj && scmResourceGroup != @",
+          "when": "scmProvider == jj && scmResourceGroup != @ && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
         }
       ],
@@ -520,6 +520,38 @@
           "default": true,
           "description": "Whether the periodic poll command (jj operation log) should snapshot the working copy. When enabled, file changes are automatically detected; when disabled, modified files may not auto-update until the next manual jj command.",
           "scope": "resource"
+        },
+        "jjk.customViews": {
+          "type": "array",
+          "default": [],
+          "description": "Aggregate diff views shown as groups in Source Control.",
+          "scope": "resource",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "from"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Label shown for the custom view."
+              },
+              "from": {
+                "type": "string",
+                "minLength": 1,
+                "description": "jj revision used as the base of the diff, for example fork_point(main | @)."
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1,
+                "default": "@",
+                "description": "jj revision used as the target of the diff. Defaults to @."
+              }
+            }
+          }
         }
       }
     },

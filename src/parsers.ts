@@ -188,6 +188,55 @@ export function parseRenamePaths(
   return null;
 }
 
+function parseFileStatusLine(
+  repositoryRoot: string,
+  line: string,
+): FileStatus | null {
+  const changeMatch = /^(A|M|D|R|C) (.+)$/.exec(line.trim());
+  if (!changeMatch) {
+    return null;
+  }
+
+  const [, type, file] = changeMatch;
+  if (type === "R" || type === "C") {
+    const parsedPaths = parseRenamePaths(file);
+    if (!parsedPaths) {
+      throw new Error(
+        `Unexpected ${type === "R" ? "rename" : "copy"} line: ${line}`,
+      );
+    }
+    return {
+      type,
+      file: parsedPaths.toPath,
+      path: path.join(repositoryRoot, parsedPaths.toPath),
+      renamedFrom: parsedPaths.fromPath,
+    };
+  }
+
+  const normalizedFile = path.normalize(file).replace(/\\/g, "/");
+  return {
+    type: type as "A" | "M" | "D",
+    file: normalizedFile,
+    path: path.join(repositoryRoot, normalizedFile),
+  };
+}
+
+export function parseFileStatuses(
+  repositoryRoot: string,
+  output: string,
+): FileStatus[] {
+  return output
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => {
+      const status = parseFileStatusLine(repositoryRoot, line);
+      if (!status) {
+        throw new Error(`Unexpected diff summary line: ${line}`);
+      }
+      return status;
+    });
+}
+
 // --- Status parsing ---
 
 export function parseStatus(
@@ -206,7 +255,6 @@ export function parseStatus(
   };
   const parentCommits: Change[] = [];
 
-  const changeRegex = /^(A|M|D|R|C) (.+)$/;
   const commitRegex =
     /^(Working copy|Parent commit)\s*(\(@-?\))?\s*:\s+(\S+)\s+(\S+)(?:\s+(.+?)\s+\|)?(?:\s+(.*))?$/;
 
@@ -259,32 +307,12 @@ export function parseStatus(
       }
     }
 
-    const changeMatch = changeRegex.exec(ansiStrippedTrimmedLine);
-    if (changeMatch) {
-      const [_, type, file] = changeMatch;
-
-      if (type === "R" || type === "C") {
-        const parsedPaths = parseRenamePaths(file);
-        if (parsedPaths) {
-          fileStatuses.push({
-            type: type,
-            file: parsedPaths.toPath,
-            path: path.join(repositoryRoot, parsedPaths.toPath),
-            renamedFrom: parsedPaths.fromPath,
-          });
-        } else {
-          throw new Error(
-            `Unexpected ${type === "R" ? "rename" : "copy"} line: ${line}`,
-          );
-        }
-      } else {
-        const normalizedFile = path.normalize(file).replace(/\\/g, "/");
-        fileStatuses.push({
-          type: type as "A" | "M" | "D",
-          file: normalizedFile,
-          path: path.join(repositoryRoot, normalizedFile),
-        });
-      }
+    const fileStatus = parseFileStatusLine(
+      repositoryRoot,
+      ansiStrippedTrimmedLine,
+    );
+    if (fileStatus) {
+      fileStatuses.push(fileStatus);
       continue;
     }
 
@@ -530,7 +558,9 @@ export function parseOperationLog(
           op.snapshot = value === "true";
           break;
         default:
-          throw new Error(`Unexpected operation log field: ${rt.fields[i].name}`);
+          throw new Error(
+            `Unexpected operation log field: ${rt.fields[i].name}`,
+          );
       }
     }
     ret.push(op);

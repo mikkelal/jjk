@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import type * as vscode from "vscode";
 import type { InitCommandHandlers } from "./commands";
 import type { CommandHandlerDeps } from "./commandHandlerShared";
 import { readRepoState } from "./commandHandlerShared";
@@ -13,6 +14,16 @@ import {
 } from "./services/Repository";
 import type { FileStatus } from "./types";
 import { pathEquals } from "./utils";
+
+const findMutableRepoByResourceGroup = (
+  deps: CommandHandlerDeps,
+  resourceGroup: vscode.SourceControlResourceGroup,
+) => {
+  const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+  return repo && !repo.customViewGroups.includes(resourceGroup)
+    ? repo
+    : undefined;
+};
 
 const maybePromptForSquashMessage = (
   shouldPrompt: boolean,
@@ -77,7 +88,7 @@ export const createChangeActionInitHandlers = (
   restoreResourceState: (...resourceStates) => {
     const resourceGroup =
       deps.repoLocator.getSharedResourceGroup(resourceStates);
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -136,7 +147,7 @@ export const createChangeActionInitHandlers = (
   squashToParentResourceState: (...resourceStates) => {
     const resourceGroup =
       deps.repoLocator.getSharedResourceGroup(resourceStates);
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -206,7 +217,7 @@ export const createChangeActionInitHandlers = (
   squashToWorkingCopyResourceState: (...resourceStates) => {
     const resourceGroup =
       deps.repoLocator.getSharedResourceGroup(resourceStates);
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -263,7 +274,7 @@ export const createChangeActionInitHandlers = (
     );
   },
   describeChange: (resourceGroup) => {
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -291,7 +302,7 @@ export const createChangeActionInitHandlers = (
     );
   },
   squashToParentResourceGroup: (resourceGroup) => {
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -352,7 +363,7 @@ export const createChangeActionInitHandlers = (
     );
   },
   squashToWorkingCopyResourceGroup: (resourceGroup) => {
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -402,7 +413,7 @@ export const createChangeActionInitHandlers = (
     );
   },
   restoreResourceGroup: (resourceGroup) => {
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }
@@ -420,7 +431,7 @@ export const createChangeActionInitHandlers = (
     );
   },
   editResourceGroup: (resourceGroup) => {
-    const repo = deps.repoLocator.findRepoByResourceGroup(resourceGroup);
+    const repo = findMutableRepoByResourceGroup(deps, resourceGroup);
     if (!repo) {
       return;
     }

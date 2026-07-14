@@ -8,6 +8,7 @@ import type { JjWatchmanRegisterSnapshotTriggerRef } from "./JjWatchmanSnapshotT
 import type { Vscode } from "./Vscode";
 import {
   parseStatus,
+  parseFileStatuses,
   parseShowResult,
   parseRenamePaths,
   parseOperationLog,
@@ -27,6 +28,8 @@ import {
   JJCliError,
   JJImmutableError,
   RepositoryDataError,
+  CustomViewConfig,
+  FileStatus,
 } from "../types";
 
 type RepositoryEnv =
@@ -87,6 +90,27 @@ export const getFileList = (
       ignoreWorkingCopy: true,
     });
     return output.trim().split("\n");
+  });
+
+export const getCustomViewFileStatuses = (
+  config: RepositoryConfig,
+  view: CustomViewConfig,
+): Effect.Effect<FileStatus[], JJCliError | JJImmutableError, RepositoryEnv> =>
+  Effect.gen(function* () {
+    const cli = yield* JJCli;
+    const output = yield* cli.run(
+      [
+        "diff",
+        "--summary",
+        "--color=never",
+        "--from",
+        view.from,
+        "--to",
+        view.to,
+      ],
+      { timeout: 5000, ignoreWorkingCopy: true },
+    );
+    return parseFileStatuses(config.repositoryRoot, output);
   });
 
 export const getShow = (

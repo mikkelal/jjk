@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { Effect, ManagedRuntime, Scope } from "effect";
 import { resolveRepoPath } from "./jjUtils";
-import { parseRenamePaths } from "./parsers";
+import { parseFileStatuses, parseRenamePaths } from "./parsers";
 import { JJDecorationProvider } from "./decorationProvider";
 import {
   JJFileSystemProviderNew,
@@ -203,6 +203,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
   await registerScoped(() =>
     vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("jjk.customViews")) {
+        logger.info("Custom views configuration changed");
+        dispatchExtensionEffect(poll(), "Failed to refresh custom views");
+      }
+
       if (e.affectsConfiguration("git")) {
         logger.info("Git configuration changed");
         const workspaceFolders = vscode.workspace.workspaceFolders || [];
@@ -310,6 +315,7 @@ export async function activate(context: vscode.ExtensionContext) {
     graphWebview: await import("./graphWebview"),
     repository: {
       parseRenamePaths,
+      parseFileStatuses,
       resolveRepoPath,
       fakeEditorPath: extensionResourcesConfig.fakeEditorPath,
       ImmutableError: class ImmutableError extends Error {

@@ -19,6 +19,8 @@ Here's what you can do so far:
 - Monitor file statuses across all parent changes
 - View detailed file diffs for Working Copy and parent modifications  
   ![view file diff](images/diff.png)
+- Add custom views for aggregate diffs, such as all changes from a branch's
+  fork point to the working copy
 - View line-by-line blame  
   <img src="images/blame.gif" width="70%" alt="view blame">
 
@@ -49,6 +51,28 @@ Here's what you can do so far:
 ## 📋 Prerequisites
 
 - Ensure `jj` is installed and available in your system's `$PATH`, or configure a custom path using the `jjk.jjPath` setting
+
+## Custom views
+
+Custom views appear as additional groups in the Source Control panel.
+Each view compares two jj revisions and updates along with the repository:
+
+```json
+{
+  "jjk.customViews": [
+    {
+      "name": "Branch Changes",
+      "from": "fork_point(main | @)",
+      "to": "@"
+    }
+  ]
+}
+```
+
+`to` is optional and defaults to `@`. Both values must resolve to a single jj
+revision so the extension can open each file at both sides of the diff. When
+`to` is `@`, the right-hand side is the editable working-copy file. Views that
+target another revision remain read-only.
 
 ## 🐛 Known Issues
 

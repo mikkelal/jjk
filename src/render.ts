@@ -3,6 +3,7 @@ import path from "path";
 import { toJJUri } from "./uri";
 import type {
   Change,
+  CustomViewState,
   FileStatus,
   ResourceViewCommandArgs,
 } from "./types";
@@ -12,6 +13,7 @@ export interface RenderData {
   workingCopy: Change;
   workingCopyFileStatuses: FileStatus[];
   parentChanges: { change: Change; fileStatuses: FileStatus[] }[];
+  customViews: CustomViewState[];
   totalFileCount: number;
 }
 
@@ -32,6 +34,7 @@ export function computeRenderData(state: RepoState): RenderData | null {
     workingCopy: state.status.workingCopy,
     workingCopyFileStatuses: state.status.fileStatuses,
     parentChanges,
+    customViews: state.customViews,
     totalFileCount: state.status.fileStatuses.length,
   };
 }
@@ -162,6 +165,63 @@ export function applyRenderData(
         ),
       }),
     );
+  }
+
+  return updatedGroups;
+}
+
+export function applyCustomViewRenderData(
+  customViews: readonly CustomViewState[],
+  sourceControl: vscode.SourceControl,
+  customViewGroups: vscode.SourceControlResourceGroup[],
+): vscode.SourceControlResourceGroup[] {
+  const updatedGroups: vscode.SourceControlResourceGroup[] = [];
+
+  for (let index = 0; index < customViews.length; index++) {
+    const view = customViews[index];
+    const id = `custom-view:${index}`;
+    const label = `View: ${view.config.name}${view.error ? " (error)" : ""}`;
+    const existingGroup = customViewGroups.find((group) => group.id === id);
+    const group = existingGroup ?? sourceControl.createResourceGroup(id, label);
+
+    group.label = label;
+    group.hideWhenEmpty = false;
+    group.resourceStates = view.fileStatuses.map((fileStatus) => {
+      const beforePath = fileStatus.renamedFrom ?? fileStatus.file;
+      const beforeUri = toJJUri(
+        vscode.Uri.file(
+          path.join(sourceControl.rootUri?.fsPath ?? "", beforePath),
+        ),
+        { rev: view.config.from },
+      );
+      const afterUri =
+        view.config.to === "@"
+          ? vscode.Uri.file(fileStatus.path)
+          : toJJUri(vscode.Uri.file(fileStatus.path), {
+              rev: view.config.to,
+            });
+
+      return {
+        resourceUri: afterUri,
+        decorations: {
+          strikeThrough: fileStatus.type === "D",
+          tooltip: path.basename(fileStatus.file),
+        },
+        command: getResourceStateCommand(
+          fileStatus,
+          beforeUri,
+          afterUri,
+          `(${view.config.name})`,
+        ),
+      };
+    });
+    updatedGroups.push(group);
+  }
+
+  for (const group of customViewGroups) {
+    if (!updatedGroups.includes(group)) {
+      group.dispose();
+    }
   }
 
   return updatedGroups;

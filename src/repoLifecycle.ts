@@ -15,7 +15,11 @@ import {
 } from "./services/JjWatchmanSnapshotTriggerRef";
 import type { RepoState } from "./services/RepoState";
 import { repoEventLoop } from "./eventLoop";
-import { computeRenderData, applyRenderData } from "./render";
+import {
+  computeRenderData,
+  applyRenderData,
+  applyCustomViewRenderData,
+} from "./render";
 import {
   resolveRepoPath,
   discoverRepositoriesEffect,
@@ -34,6 +38,13 @@ import type { OperationLogManager } from "./operationLogTreeView";
 
 const toError = (cause: unknown): Error =>
   cause instanceof Error ? cause : new Error(String(cause));
+
+const haveSameGroupIds = (
+  ids: readonly string[],
+  groups: readonly vscode.SourceControlResourceGroup[],
+): boolean =>
+  ids.length === groups.length &&
+  ids.every((id, index) => id === groups[index]?.id);
 
 export interface RepoLifecycleDeps {
   readonly repos: RepoHandle[];
@@ -65,12 +76,31 @@ export const makeRepoLifecycle = (deps: RepoLifecycleDeps): RepoLifecycle => {
     repo.currentState = newState;
     const renderData = computeRenderData(newState);
     if (renderData) {
+      const previousParentGroupIds = repo.parentGroups.map((group) => group.id);
       repo.parentGroups = applyRenderData(
         renderData,
         repo.sourceControl,
         repo.workingCopyGroup,
         repo.parentGroups,
       );
+      if (!haveSameGroupIds(previousParentGroupIds, repo.parentGroups)) {
+        for (const group of repo.customViewGroups) {
+          group.dispose();
+        }
+        repo.customViewGroups = [];
+      }
+      repo.customViewGroups = applyCustomViewRenderData(
+        renderData.customViews,
+        repo.sourceControl,
+        repo.customViewGroups,
+      );
+      for (const view of renderData.customViews) {
+        if (view.error) {
+          logger.error(
+            `Custom view ${JSON.stringify(view.config.name)} failed in ${repo.config.repositoryRoot}: ${view.error}`,
+          );
+        }
+      }
     }
 
     deps.decorationProvider.onRefresh(
@@ -204,6 +234,7 @@ export const makeRepoLifecycle = (deps: RepoLifecycleDeps): RepoLifecycle => {
           sourceControl,
           workingCopyGroup,
           parentGroups: [],
+          customViewGroups: [],
           onDidUpdateEmitter,
           dispose: () =>
             deps.extensionRuntime.runPromise(closeScope(repoScope)),
@@ -306,7 +337,6 @@ export const makeRepoLifecycle = (deps: RepoLifecycleDeps): RepoLifecycle => {
         yield* setContext("jj.reposExist", deps.repos.length > 0).pipe(
           Effect.catchAll(() => Effect.void),
         );
-
         yield* Effect.tryPromise({
           try: () => deps.reconcileSelectedRepo(),
           catch: toError,

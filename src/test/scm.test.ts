@@ -130,4 +130,102 @@ suite("SCM Integration Tests", () => {
       `Expected ${testFileName} in parent resource group, but found: ${parentStates.map((s) => path.basename(s.resourceUri.fsPath)).join(", ") || "(empty)"}`,
     );
   });
+
+  test("renders configured aggregate diffs as custom view groups", async function () {
+    this.timeout(30_000);
+    const repoSCM = workspaceSCM.repoSCMs[0];
+    const canonicalRepoRoot = await fs.realpath(repoRoot);
+    const workspaceFolder = await Promise.all(
+      (vscode.workspace.workspaceFolders ?? []).map(async (folder) => ({
+        folder,
+        canonicalPath: await fs.realpath(folder.uri.fsPath),
+      })),
+    ).then((folders) =>
+      folders.find((folder) => folder.canonicalPath === canonicalRepoRoot),
+    );
+    assert.ok(workspaceFolder, "Expected a workspace folder for the jj repo");
+    const configuration = vscode.workspace.getConfiguration(
+      "jjk",
+      workspaceFolder.folder.uri,
+    );
+    const testFileName = "custom-view-integration.txt";
+
+    try {
+      await fs.writeFile(path.join(repoRoot, testFileName), "base content\n");
+      await execJJPromise("new", { cwd: repoRoot });
+      await fs.writeFile(path.join(repoRoot, testFileName), "edited content\n");
+      await configuration.update(
+        "customViews",
+        [{ name: "All Changes", from: "@-", to: "@" }],
+        vscode.ConfigurationTarget.WorkspaceFolder,
+      );
+      await vscode.commands.executeCommand("jj.refresh");
+
+      assert.strictEqual(repoSCM.customViewResourceGroups.length, 1);
+      const group = repoSCM.customViewResourceGroups[0];
+      assert.match(group.label, /View: All Changes/);
+      const resource = group.resourceStates.find((state) =>
+        state.resourceUri.fsPath.endsWith(testFileName),
+      );
+      assert.ok(
+        resource,
+        "Expected the aggregate diff to contain the test file",
+      );
+      assert.strictEqual(resource.command?.command, "jj.openResourceView");
+      const commandArguments: unknown[] = resource.command?.arguments ?? [];
+      const resourceViewArgs = commandArguments[0] as {
+        beforeUri?: unknown;
+        afterUri?: unknown;
+      };
+      const beforeUri = resourceViewArgs.beforeUri;
+      const afterUri = resourceViewArgs.afterUri;
+      assert.ok(beforeUri instanceof vscode.Uri);
+      assert.ok(afterUri instanceof vscode.Uri);
+      assert.strictEqual(beforeUri.scheme, "jj");
+      assert.strictEqual(afterUri.scheme, "file");
+
+      await vscode.commands.executeCommand(
+        resource.command.command,
+        ...commandArguments,
+        false,
+      );
+      assert.ok(
+        vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof
+          vscode.TabInputTextDiff,
+        "Expected the first open to show the diff",
+      );
+
+      await vscode.commands.executeCommand(
+        resource.command.command,
+        ...commandArguments,
+        false,
+      );
+      const activeFileInput =
+        vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      assert.ok(activeFileInput instanceof vscode.TabInputText);
+      assert.strictEqual(
+        activeFileInput.uri.toString(),
+        afterUri.toString(),
+        "Expected the second open to show the file",
+      );
+
+      await vscode.commands.executeCommand(
+        resource.command.command,
+        ...commandArguments,
+        true,
+      );
+      assert.ok(
+        vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof
+          vscode.TabInputTextDiff,
+        "Expected the next click to switch back to the diff",
+      );
+    } finally {
+      await configuration.update(
+        "customViews",
+        undefined,
+        vscode.ConfigurationTarget.WorkspaceFolder,
+      );
+      await vscode.commands.executeCommand("jj.refresh");
+    }
+  });
 });

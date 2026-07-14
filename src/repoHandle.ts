@@ -25,6 +25,7 @@ export interface RepoHandle {
   sourceControl: vscode.SourceControl;
   workingCopyGroup: vscode.SourceControlResourceGroup;
   parentGroups: vscode.SourceControlResourceGroup[];
+  customViewGroups: vscode.SourceControlResourceGroup[];
   onDidUpdateEmitter: vscode.EventEmitter<void>;
   dispose(): Promise<void>;
 }
@@ -34,6 +35,7 @@ export interface RepositorySourceControlManager {
   readonly sourceControl: vscode.SourceControl;
   readonly workingCopyResourceGroup: vscode.SourceControlResourceGroup;
   readonly parentResourceGroups: vscode.SourceControlResourceGroup[];
+  readonly customViewResourceGroups: vscode.SourceControlResourceGroup[];
   readonly status: RepositoryStatus | undefined;
   readonly parentShowResults: Map<string, Show>;
   readonly onDidUpdate: vscode.Event<void>;

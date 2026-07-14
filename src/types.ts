@@ -47,6 +47,18 @@ export type Show = {
   conflictedFiles: Set<string>;
 };
 
+export type CustomViewConfig = {
+  name: string;
+  from: string;
+  to: string;
+};
+
+export type CustomViewState = {
+  config: CustomViewConfig;
+  fileStatuses: FileStatus[];
+  error?: string;
+};
+
 export type Operation = {
   id: string;
   description: string;

@@ -108,3 +108,40 @@ suite("parseRenamePaths", () => {
     assert.strictEqual(parseRenamePaths(input), null);
   });
 });
+
+suite("parseFileStatuses", () => {
+  test("parses an aggregate diff summary", async () => {
+    const { parseFileStatuses } = (await getExtensionAPI()).repository;
+    const statuses = parseFileStatuses(
+      "/repo",
+      [
+        "A src/added.ts",
+        "M src/modified.ts",
+        "D src/deleted.ts",
+        "R src/{old => new}.ts",
+      ].join("\n"),
+    );
+
+    assert.deepStrictEqual(
+      statuses.map(({ type, file, renamedFrom }) => ({
+        type,
+        file,
+        renamedFrom,
+      })),
+      [
+        { type: "A", file: "src/added.ts", renamedFrom: undefined },
+        { type: "M", file: "src/modified.ts", renamedFrom: undefined },
+        { type: "D", file: "src/deleted.ts", renamedFrom: undefined },
+        { type: "R", file: "src/new.ts", renamedFrom: "src/old.ts" },
+      ],
+    );
+  });
+
+  test("rejects output that is not a diff summary", async () => {
+    const { parseFileStatuses } = (await getExtensionAPI()).repository;
+    assert.throws(
+      () => parseFileStatuses("/repo", "unexpected output"),
+      /Unexpected diff summary line/,
+    );
+  });
+});

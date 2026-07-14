@@ -11,6 +11,7 @@ type ExtensionAPI = {
     parseRenamePaths: (
       input: string,
     ) => { fromPath: string; toPath: string } | null;
+    parseFileStatuses: typeof import("../parsers").parseFileStatuses;
     resolveRepoPath: (workspaceRoot: string) => string;
     fakeEditorPath: string;
     ImmutableError: new (message: string) => Error;

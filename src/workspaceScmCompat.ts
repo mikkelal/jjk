@@ -30,6 +30,9 @@ export function buildRepoSCMProxy(
     get parentResourceGroups() {
       return repo.parentGroups;
     },
+    get customViewResourceGroups() {
+      return repo.customViewGroups;
+    },
     get status() {
       return repo.currentState.status;
     },
