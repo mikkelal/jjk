@@ -62,7 +62,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
         const key = getKey(Uri.file(fileStatus.path).fsPath, changeId);
         nextRepositoryDecorations.set(key, {
           badge: fileStatus.type,
-          tooltip: fileStatus.file,
+          tooltip: getFileStatusTooltip(fileStatus),
           color: colorOfType(fileStatus.type),
         });
       }
@@ -131,6 +131,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
       if (params.status) {
         return {
           badge: params.status,
+          tooltip: params.statusTooltip,
           color: colorOfType(params.status),
         };
       }
@@ -166,9 +167,11 @@ export class JJDecorationProvider implements FileDecorationProvider {
 
     const changedDecorationKeys = new Set<string>();
     for (const [key, fileDecoration] of nextDecorations) {
+      const previousDecoration = this.decorations.get(key);
       if (
-        !this.decorations.has(key) ||
-        this.decorations.get(key)!.badge !== fileDecoration.badge
+        !previousDecoration ||
+        previousDecoration.badge !== fileDecoration.badge ||
+        previousDecoration.tooltip !== fileDecoration.tooltip
       ) {
         changedDecorationKeys.add(key);
       }
@@ -217,6 +220,12 @@ export class JJDecorationProvider implements FileDecorationProvider {
 
     this._onDidChangeDecorations.fire(changedUris);
   }
+}
+
+export function getFileStatusTooltip(fileStatus: FileStatus): string {
+  return fileStatus.renamedFrom
+    ? `${fileStatus.renamedFrom} → ${fileStatus.file}`
+    : fileStatus.file;
 }
 
 function getKey(fsPath: string, rev: string) {

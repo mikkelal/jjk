@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import path from "path";
 import { toJJUri } from "./uri";
+import { getFileStatusTooltip } from "./decorationProvider";
 import type {
   Change,
   CustomViewState,
@@ -98,7 +99,7 @@ export function applyRenderData(
       resourceUri: vscode.Uri.file(fileStatus.path),
       decorations: {
         strikeThrough: fileStatus.type === "D",
-        tooltip: path.basename(fileStatus.file),
+        tooltip: getFileStatusTooltip(fileStatus),
       },
       command: getResourceStateCommand(
         fileStatus,
@@ -153,7 +154,7 @@ export function applyRenderData(
         }),
         decorations: {
           strikeThrough: parentStatus.type === "D",
-          tooltip: path.basename(parentStatus.file),
+          tooltip: getFileStatusTooltip(parentStatus),
         },
         command: getResourceStateCommand(
           parentStatus,
@@ -208,10 +209,11 @@ export function applyCustomViewRenderData(
         resourceUri: toJJUri(vscode.Uri.file(fileStatus.path), {
           rev: view.config.to,
           status: fileStatus.type,
+          statusTooltip: getFileStatusTooltip(fileStatus),
         }),
         decorations: {
           strikeThrough: fileStatus.type === "D",
-          tooltip: path.basename(fileStatus.file),
+          tooltip: getFileStatusTooltip(fileStatus),
         },
         command: getResourceStateCommand(
           fileStatus,

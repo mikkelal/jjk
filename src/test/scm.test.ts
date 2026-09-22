@@ -167,6 +167,20 @@ suite("SCM Integration Tests", () => {
         path.join(repoRoot, originalFileName),
         path.join(repoRoot, renamedFileName),
       );
+      await vscode.commands.executeCommand("jj.refresh");
+      const workingCopyRename =
+        repoSCM.workingCopyResourceGroup.resourceStates.find(
+          (state) =>
+            state.resourceUri.fsPath === path.join(repoRoot, renamedFileName),
+        );
+      assert.ok(workingCopyRename, "Expected the rename in Working Copy");
+      const renameTooltip = `${originalFileName} → ${renamedFileName}`;
+      assert.strictEqual(workingCopyRename.decorations?.tooltip, renameTooltip);
+      assert.strictEqual(
+        decorationProvider.provideFileDecoration(workingCopyRename.resourceUri)
+          ?.tooltip,
+        renameTooltip,
+      );
       await execJJPromise("new", { cwd: repoRoot });
       await fs.writeFile(path.join(repoRoot, addedFileName), "newer content\n");
       await configuration.update(
@@ -178,6 +192,22 @@ suite("SCM Integration Tests", () => {
         vscode.ConfigurationTarget.WorkspaceFolder,
       );
       await vscode.commands.executeCommand("jj.refresh");
+
+      for (const group of [
+        ...repoSCM.parentResourceGroups,
+        ...repoSCM.customViewResourceGroups,
+      ]) {
+        const rename = group.resourceStates.find(
+          (state) =>
+            state.resourceUri.fsPath === path.join(repoRoot, renamedFileName),
+        );
+        assert.ok(rename, `Expected the rename in ${group.label}`);
+        assert.strictEqual(rename.decorations?.tooltip, renameTooltip);
+        assert.strictEqual(
+          decorationProvider.provideFileDecoration(rename.resourceUri)?.tooltip,
+          renameTooltip,
+        );
+      }
 
       assert.strictEqual(repoSCM.customViewResourceGroups.length, 2);
       for (const customGroup of repoSCM.customViewResourceGroups) {

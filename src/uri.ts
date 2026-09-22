@@ -4,6 +4,7 @@ import { type } from "arktype";
 const RevUriParams = type({
   rev: "string",
   "status?": "'A' | 'M' | 'D' | 'R' | 'C'",
+  "statusTooltip?": "string",
 });
 const DiffOriginalRevUriParams = type({
   diffOriginalRev: "string",
