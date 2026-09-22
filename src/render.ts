@@ -73,13 +73,15 @@ function getResourceStateCommand(
   return {
     title: "Open",
     command: "jj.openResourceView",
-    arguments: [{
-      beforeUri,
-      afterUri,
-      title:
-        (fileStatus.renamedFrom ? `${fileStatus.renamedFrom} => ` : "") +
-        `${fileStatus.file} ${diffTitleSuffix}`,
-    } satisfies ResourceViewCommandArgs],
+    arguments: [
+      {
+        beforeUri,
+        afterUri,
+        title:
+          (fileStatus.renamedFrom ? `${fileStatus.renamedFrom} => ` : "") +
+          `${fileStatus.file} ${diffTitleSuffix}`,
+      } satisfies ResourceViewCommandArgs,
+    ],
   };
 }
 
@@ -202,7 +204,11 @@ export function applyCustomViewRenderData(
             });
 
       return {
-        resourceUri: afterUri,
+        // A file's aggregate status can differ from its working-copy status.
+        resourceUri: toJJUri(vscode.Uri.file(fileStatus.path), {
+          rev: view.config.to,
+          status: fileStatus.type,
+        }),
         decorations: {
           strikeThrough: fileStatus.type === "D",
           tooltip: path.basename(fileStatus.file),

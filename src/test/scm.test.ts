@@ -134,6 +134,7 @@ suite("SCM Integration Tests", () => {
   test("renders configured aggregate diffs as custom view groups", async function () {
     this.timeout(30_000);
     const repoSCM = workspaceSCM.repoSCMs[0];
+    const { decorationProvider } = await getExtensionAPI();
     const canonicalRepoRoot = await fs.realpath(repoRoot);
     const workspaceFolder = await Promise.all(
       (vscode.workspace.workspaceFolders ?? []).map(async (folder) => ({
@@ -149,19 +150,69 @@ suite("SCM Integration Tests", () => {
       workspaceFolder.folder.uri,
     );
     const testFileName = "custom-view-integration.txt";
+    const addedFileName = "custom-view-added.txt";
+    const deletedFileName = "custom-view-deleted.txt";
+    const originalFileName = "custom-view-original.txt";
+    const renamedFileName = "custom-view-renamed.txt";
 
     try {
       await fs.writeFile(path.join(repoRoot, testFileName), "base content\n");
+      await fs.writeFile(path.join(repoRoot, deletedFileName), "to delete\n");
+      await fs.writeFile(path.join(repoRoot, originalFileName), "to rename\n");
       await execJJPromise("new", { cwd: repoRoot });
       await fs.writeFile(path.join(repoRoot, testFileName), "edited content\n");
+      await fs.writeFile(path.join(repoRoot, addedFileName), "new content\n");
+      await fs.unlink(path.join(repoRoot, deletedFileName));
+      await fs.rename(
+        path.join(repoRoot, originalFileName),
+        path.join(repoRoot, renamedFileName),
+      );
+      await execJJPromise("new", { cwd: repoRoot });
+      await fs.writeFile(path.join(repoRoot, addedFileName), "newer content\n");
       await configuration.update(
         "customViews",
-        [{ name: "All Changes", from: "@-", to: "@" }],
+        [
+          { name: "All Changes", from: "@--", to: "@" },
+          { name: "Previous Changes", from: "@--", to: "@-" },
+        ],
         vscode.ConfigurationTarget.WorkspaceFolder,
       );
       await vscode.commands.executeCommand("jj.refresh");
 
-      assert.strictEqual(repoSCM.customViewResourceGroups.length, 1);
+      assert.strictEqual(repoSCM.customViewResourceGroups.length, 2);
+      for (const customGroup of repoSCM.customViewResourceGroups) {
+        for (const [fileName, badge] of [
+          [addedFileName, "A"],
+          [testFileName, "M"],
+          [deletedFileName, "D"],
+          [renamedFileName, "R"],
+        ]) {
+          const state = customGroup.resourceStates.find((resource) =>
+            resource.resourceUri.fsPath.endsWith(fileName),
+          );
+          assert.ok(state, `Expected ${fileName} in ${customGroup.label}`);
+          assert.strictEqual(
+            decorationProvider.provideFileDecoration(state.resourceUri)?.badge,
+            badge,
+            `Expected ${badge} for ${fileName} in ${customGroup.label}`,
+          );
+          assert.strictEqual(state.decorations?.strikeThrough, badge === "D");
+        }
+      }
+      assert.strictEqual(
+        decorationProvider.provideFileDecoration(
+          vscode.Uri.file(path.join(repoRoot, addedFileName)),
+        )?.badge,
+        "M",
+        "The working-copy status must remain independent of the aggregate status",
+      );
+      assert.strictEqual(
+        decorationProvider.provideFileDecoration(
+          vscode.Uri.file(path.join(repoRoot, testFileName)),
+        )?.badge,
+        undefined,
+        "Files changed only in the stack must remain clean in the working copy",
+      );
       const group = repoSCM.customViewResourceGroups[0];
       assert.match(group.label, /View: All Changes/);
       const resource = group.resourceStates.find((state) =>

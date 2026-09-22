@@ -1,11 +1,13 @@
 import * as assert from "assert";
 import * as vscode from "vscode";
 import type { WorkspaceSourceControlManager } from "../repoHandle";
+import type { JJDecorationProvider } from "../decorationProvider";
 import type * as UriModule from "../uri";
 import type * as GraphWebviewModule from "../graphWebview";
 
 type ExtensionAPI = {
   workspaceSCM: WorkspaceSourceControlManager;
+  decorationProvider: JJDecorationProvider;
   uri: typeof UriModule;
   repository: {
     parseRenamePaths: (

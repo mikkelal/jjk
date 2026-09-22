@@ -311,6 +311,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   return {
     workspaceSCM,
+    decorationProvider,
     uri: await import("./uri"),
     graphWebview: await import("./graphWebview"),
     repository: {

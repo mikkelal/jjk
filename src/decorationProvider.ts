@@ -128,6 +128,12 @@ export class JJDecorationProvider implements FileDecorationProvider {
         // single rev, because we never show the left side of a diff by itself; it'll always be part of a diff view.
         return undefined;
       }
+      if (params.status) {
+        return {
+          badge: params.status,
+          color: colorOfType(params.status),
+        };
+      }
       rev = params.rev;
     }
     const key = getKey(uri.fsPath, rev);

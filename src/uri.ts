@@ -1,7 +1,10 @@
 import { Uri } from "vscode";
 import { type } from "arktype";
 
-const RevUriParams = type({ rev: "string" });
+const RevUriParams = type({
+  rev: "string",
+  "status?": "'A' | 'M' | 'D' | 'R' | 'C'",
+});
 const DiffOriginalRevUriParams = type({
   diffOriginalRev: "string",
 });
