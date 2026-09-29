@@ -6,7 +6,7 @@
   "icon": "images/logo.png",
   "version": "0.10.0",
   "engines": {
-    "vscode": "^1.96.0",
+    "vscode": "^1.109.0",
     "npm": ">=11.10.0"
   },
   "categories": [
@@ -38,6 +38,12 @@
       ]
     },
     "commands": [
+      {
+        "command": "workbench.scm.action.collapseAll",
+        "title": "Collapse All Folders",
+        "category": "Jujutsu",
+        "icon": "$(collapse-all)"
+      },
       {
         "command": "jj.refresh",
         "title": "Refresh",
@@ -318,6 +324,11 @@
       ],
       "scm/resourceGroup/context": [
         {
+          "command": "workbench.scm.action.collapseAll",
+          "when": "scmProvider == jj && scmViewMode == tree",
+          "group": "inline@0"
+        },
+        {
           "command": "jj.describe",
           "when": "scmProvider == jj && !(scmResourceGroup =~ /^custom-view:/)",
           "group": "inline"
@@ -388,6 +399,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "workbench.scm.action.collapseAll",
+          "when": "false"
+        },
         {
           "command": "jj.openFileResourceState",
           "when": "false"
@@ -696,6 +711,8 @@
   "scripts": {
     "build": "npm run check-types && npm run lint && node esbuild.js --production && cp -r src/webview dist/ && cp src/config.toml dist/ && mkdir -p dist/codicons && cp -r node_modules/@vscode/codicons/dist/* dist/codicons/ && npm run build:fakeeditor && mkdir -p dist/fakeeditor/zig-out/bin && cp -r src/fakeeditor/zig-out/bin/. dist/fakeeditor/zig-out/bin/",
     "build:fakeeditor": "cd src/fakeeditor && ./build_all_platforms.sh",
+    "package": "vsce package --no-dependencies --allow-star-activation --out jjk-local.vsix",
+    "install:local": "npm run package && code --install-extension jjk-local.vsix --force",
     "vscode:prepublish": "npm run build",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
@@ -717,6 +734,7 @@
     "@types/which": "^3.0.4",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "4.0.0",
     "esbuild": "^0.24.0",
     "eslint": "^10.4.0",
     "globals": "^15.14.0",

@@ -74,6 +74,27 @@ revision so the extension can open each file at both sides of the diff. When
 `to` is `@`, the right-hand side is the editable working-copy file. Views that
 target another revision remain read-only.
 
+## Build and install locally
+
+Requires Node.js 22+, npm 11.10+, [uv](https://docs.astral.sh/uv/), and the
+VS Code `code` command on your `PATH`. On macOS, run **Shell Command: Install
+'code' command in PATH** from VS Code's Command Palette if needed.
+
+```sh
+npm ci
+npm run install:local
+```
+
+`install:local` checks types and lint, builds the extension and native helpers,
+packages `jjk-local.vsix`, and installs it into VS Code, replacing the installed
+version even when the version number is unchanged. The helper build uses Zig
+0.15.2 through `uvx`, which downloads and caches the compiler on its first run.
+The system Zig installation is not used.
+
+Run **Developer: Reload Window** in VS Code after installing to load the update.
+For later source changes, run `npm run install:local` again. To build a VSIX
+without installing it, use `npm run package`.
+
 ## 🐛 Known Issues
 
 If you encounter any problems, please [report them on GitHub](https://github.com/keanemind/jjk/issues/)!
