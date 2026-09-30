@@ -228,6 +228,30 @@ export function getFileStatusTooltip(fileStatus: FileStatus): string {
     : fileStatus.file;
 }
 
+export function getFileStatusIcon(
+  type: FileStatusType,
+  theme: "light" | "dark",
+): Uri {
+  switch (type) {
+    case "A":
+      return createStatusIcon(type, theme === "light" ? "#587c0c" : "#81b88b");
+    case "D":
+      return createStatusIcon(type, theme === "light" ? "#ad0707" : "#c74e39");
+    case "M":
+    case "R":
+      return createStatusIcon(type, theme === "light" ? "#895503" : "#E2C08D");
+    case "C":
+      return createStatusIcon(type, theme === "light" ? "#424242" : "#cccccc");
+  }
+}
+
+function createStatusIcon(type: FileStatusType, color: string): Uri {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><text x="8" y="12" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="600" fill="${color}">${type}</text></svg>`;
+  return Uri.parse(
+    `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
+  );
+}
+
 function getKey(fsPath: string, rev: string) {
   fsPath = process.platform === "win32" ? fsPath.toLowerCase() : fsPath;
   return JSON.stringify({ fsPath, rev });

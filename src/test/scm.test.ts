@@ -203,10 +203,13 @@ suite("SCM Integration Tests", () => {
         );
         assert.ok(rename, `Expected the rename in ${group.label}`);
         assert.strictEqual(rename.decorations?.tooltip, renameTooltip);
-        assert.strictEqual(
-          decorationProvider.provideFileDecoration(rename.resourceUri)?.tooltip,
-          renameTooltip,
-        );
+        if (repoSCM.parentResourceGroups.includes(group)) {
+          assert.strictEqual(
+            decorationProvider.provideFileDecoration(rename.resourceUri)
+              ?.tooltip,
+            renameTooltip,
+          );
+        }
       }
 
       assert.strictEqual(repoSCM.customViewResourceGroups.length, 2);
@@ -221,12 +224,32 @@ suite("SCM Integration Tests", () => {
             resource.resourceUri.fsPath.endsWith(fileName),
           );
           assert.ok(state, `Expected ${fileName} in ${customGroup.label}`);
-          assert.strictEqual(
-            decorationProvider.provideFileDecoration(state.resourceUri)?.badge,
-            badge,
-            `Expected ${badge} for ${fileName} in ${customGroup.label}`,
-          );
+          for (const theme of ["light", "dark"] as const) {
+            const icon: vscode.SourceControlResourceThemableDecorations["iconPath"] =
+              state.decorations?.[theme]?.iconPath;
+            assert.ok(icon instanceof vscode.Uri);
+            assert.strictEqual(icon.scheme, "data");
+            const svg = Buffer.from(
+              icon.path.split(",")[1],
+              "base64",
+            ).toString();
+            assert.ok(
+              svg.includes(`>${badge}</text>`),
+              `Expected ${badge} for ${fileName} in ${customGroup.label}`,
+            );
+          }
           assert.strictEqual(state.decorations?.strikeThrough, badge === "D");
+          const commandArgs: unknown[] = state.command?.arguments ?? [];
+          const openedUri =
+            state.command?.command === "vscode.open"
+              ? commandArgs[0]
+              : (commandArgs[0] as { afterUri?: unknown }).afterUri;
+          assert.ok(openedUri instanceof vscode.Uri);
+          assert.strictEqual(
+            state.resourceUri.toString(),
+            openedUri.toString(),
+            `Selecting ${fileName} must stay in ${customGroup.label}`,
+          );
         }
       }
       assert.strictEqual(
@@ -242,6 +265,21 @@ suite("SCM Integration Tests", () => {
         )?.badge,
         undefined,
         "Files changed only in the stack must remain clean in the working copy",
+      );
+      const branchAddedFile =
+        repoSCM.customViewResourceGroups[0].resourceStates.find(
+          (state) =>
+            state.resourceUri.fsPath === path.join(repoRoot, addedFileName),
+        );
+      assert.ok(branchAddedFile);
+      await vscode.commands.executeCommand(
+        "jj.restoreResourceState",
+        branchAddedFile,
+      );
+      assert.strictEqual(
+        await fs.readFile(path.join(repoRoot, addedFileName), "utf8"),
+        "newer content\n",
+        "Branch rows sharing a working-copy URI must remain protected from restore commands",
       );
       const group = repoSCM.customViewResourceGroups[0];
       assert.match(group.label, /View: All Changes/);
@@ -264,6 +302,11 @@ suite("SCM Integration Tests", () => {
       assert.ok(afterUri instanceof vscode.Uri);
       assert.strictEqual(beforeUri.scheme, "jj");
       assert.strictEqual(afterUri.scheme, "file");
+      assert.strictEqual(
+        resource.resourceUri.toString(),
+        afterUri.toString(),
+        "The branch row must match the opened editor so SCM auto-reveal keeps it selected",
+      );
 
       await vscode.commands.executeCommand(
         resource.command.command,

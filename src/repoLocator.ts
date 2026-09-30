@@ -47,7 +47,9 @@ export const makeRepoLocator = (
       for (const group of groups) {
         if (
           group.resourceStates.some(
-            (state) => state.resourceUri.toString() === resourceUri.toString(),
+            (state) =>
+              state.resourceUri.toString() === resourceUri.toString() &&
+              state.contextValue === resourceState.contextValue,
           )
         ) {
           return group;

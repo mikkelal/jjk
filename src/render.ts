@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import path from "path";
 import { toJJUri } from "./uri";
-import { getFileStatusTooltip } from "./decorationProvider";
+import { getFileStatusIcon, getFileStatusTooltip } from "./decorationProvider";
 import type {
   Change,
   CustomViewState,
@@ -58,7 +58,10 @@ function getResourceStateCommand(
     return {
       title: "Open",
       command: "vscode.open",
-      arguments: [afterUri],
+      arguments: [
+        afterUri,
+        { preserveFocus: true } satisfies vscode.TextDocumentShowOptions,
+      ],
     };
   } else if (fileStatus.type === "D") {
     return {
@@ -66,7 +69,7 @@ function getResourceStateCommand(
       command: "vscode.open",
       arguments: [
         beforeUri,
-        {} satisfies vscode.TextDocumentShowOptions,
+        { preserveFocus: true } satisfies vscode.TextDocumentShowOptions,
         `${fileStatus.file} (Deleted)`,
       ],
     };
@@ -205,15 +208,15 @@ export function applyCustomViewRenderData(
             });
 
       return {
-        // A file's aggregate status can differ from its working-copy status.
-        resourceUri: toJJUri(vscode.Uri.file(fileStatus.path), {
-          rev: view.config.to,
-          status: fileStatus.type,
-          statusTooltip: getFileStatusTooltip(fileStatus),
-        }),
+        // Match the editor URI so SCM auto-reveal keeps the clicked row selected.
+        resourceUri: fileStatus.type === "D" ? beforeUri : afterUri,
+        contextValue: id,
         decorations: {
           strikeThrough: fileStatus.type === "D",
           tooltip: getFileStatusTooltip(fileStatus),
+          // A file's aggregate status can differ from its working-copy status.
+          light: { iconPath: getFileStatusIcon(fileStatus.type, "light") },
+          dark: { iconPath: getFileStatusIcon(fileStatus.type, "dark") },
         },
         command: getResourceStateCommand(
           fileStatus,
