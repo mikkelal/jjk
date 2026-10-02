@@ -97,6 +97,44 @@ without installing it, use `npm run package`.
 
 ## 🐛 Known Issues
 
+### Experimental Back/Forward history for diff previews
+
+VS Code removes a diff's navigation entry when its preview tab is replaced.
+This optional companion patches the native history in memory so jj diffs remain
+reachable with the existing Back/Forward commands while using one preview tab.
+It does not change the installed application files or your keybindings.
+
+Build and install the automatic companion from this repository with Node.js 22+:
+
+```sh
+npm run package:diff-history
+code --install-extension out/jjk-native-diff-history.vsix --force
+```
+
+In **Preferences: Configure Runtime Arguments**, add
+`"remote-debugging-port": "9347"` to `argv.json`, then fully quit and reopen
+VS Code. The companion automatically applies the hook when you navigate, and
+reconnects after window reloads. Diagnostics are available in the **JJK Native
+Diff History** output channel.
+
+This uses a local debugger to patch private workbench internals. It is tested on
+VS Code 1.138.0; other builds may need changes. The port provides control over
+the editor to local processes while VS Code is running.
+
+To remove the workaround, uninstall **JJK Native Diff History**, remove the
+runtime argument, and restart VS Code. History entries already discarded before
+applying the hook cannot be recovered.
+
+For a temporary session without the companion or saved runtime setting, fully
+quit VS Code and use the manual launcher:
+
+```sh
+npm run vscode:diff-history
+```
+
+With the manual launcher, run `npm run vscode:diff-history -- --attach` after
+window reloads, or restart VS Code normally to remove the temporary patch.
+
 If you encounter any problems, please [report them on GitHub](https://github.com/keanemind/jjk/issues/)!
 
 ## 📝 License

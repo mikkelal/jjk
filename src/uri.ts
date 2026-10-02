@@ -23,6 +23,17 @@ export function toJJUri(uri: Uri, params: JJUriParams): Uri {
   });
 }
 
+/** Keep SCM paths relative to the file root while identifying revision decorations. */
+export function toSCMUri(uri: Uri, rev: string): Uri {
+  return uri.with({ query: `jj-rev=${encodeURIComponent(rev)}` });
+}
+
+export function getSCMRevision(uri: Uri): string | undefined {
+  return uri.scheme === "file"
+    ? (new URLSearchParams(uri.query).get("jj-rev") ?? undefined)
+    : undefined;
+}
+
 export function getParams(uri: Uri) {
   if (uri.query === "") {
     throw new Error("URI has no query");

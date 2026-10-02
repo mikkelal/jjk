@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import path from "path";
-import { toJJUri } from "./uri";
+import { toJJUri, toSCMUri } from "./uri";
 import { getFileStatusIcon, getFileStatusTooltip } from "./decorationProvider";
 import type {
   Change,
@@ -152,9 +152,10 @@ export function applyRenderData(
 
     parentChangeResourceGroup.resourceStates = fileStatuses.map(
       (parentStatus) => ({
-        resourceUri: toJJUri(vscode.Uri.file(parentStatus.path), {
-          rev: parentChange.changeId,
-        }),
+        resourceUri: toSCMUri(
+          vscode.Uri.file(parentStatus.path),
+          parentChange.changeId,
+        ),
         decorations: {
           strikeThrough: parentStatus.type === "D",
           tooltip: getFileStatusTooltip(parentStatus),
@@ -208,8 +209,9 @@ export function applyCustomViewRenderData(
             });
 
       return {
-        // Match the editor URI so SCM auto-reveal keeps the clicked row selected.
-        resourceUri: fileStatus.type === "D" ? beforeUri : afterUri,
+        // SCM tree paths must share the repository's file scheme. Historical
+        // editor URIs stay in the command so auto-reveal leaves this row selected.
+        resourceUri: vscode.Uri.file(fileStatus.path),
         contextValue: id,
         decorations: {
           strikeThrough: fileStatus.type === "D",

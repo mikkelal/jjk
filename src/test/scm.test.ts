@@ -135,6 +135,8 @@ suite("SCM Integration Tests", () => {
     this.timeout(30_000);
     const repoSCM = workspaceSCM.repoSCMs[0];
     const { decorationProvider } = await getExtensionAPI();
+    const rootUri = repoSCM.sourceControl.rootUri;
+    assert.ok(rootUri);
     const canonicalRepoRoot = await fs.realpath(repoRoot);
     const workspaceFolder = await Promise.all(
       (vscode.workspace.workspaceFolders ?? []).map(async (folder) => ({
@@ -151,11 +153,17 @@ suite("SCM Integration Tests", () => {
     );
     const testFileName = "custom-view-integration.txt";
     const addedFileName = "custom-view-added.txt";
-    const deletedFileName = "custom-view-deleted.txt";
+    const deletedFileName = "nested/custom-view-deleted.txt";
     const originalFileName = "custom-view-original.txt";
     const renamedFileName = "custom-view-renamed.txt";
+    const decorationChanges: vscode.Uri[] = [];
+    const decorationSubscription =
+      decorationProvider.onDidChangeFileDecorations((uris) =>
+        decorationChanges.push(...uris),
+      );
 
     try {
+      await fs.mkdir(path.join(repoRoot, "nested"), { recursive: true });
       await fs.writeFile(path.join(repoRoot, testFileName), "base content\n");
       await fs.writeFile(path.join(repoRoot, deletedFileName), "to delete\n");
       await fs.writeFile(path.join(repoRoot, originalFileName), "to rename\n");
@@ -197,6 +205,13 @@ suite("SCM Integration Tests", () => {
         ...repoSCM.parentResourceGroups,
         ...repoSCM.customViewResourceGroups,
       ]) {
+        for (const state of group.resourceStates) {
+          assert.strictEqual(
+            state.resourceUri.scheme,
+            rootUri.scheme,
+            `Files in ${group.label} must use the repository URI scheme so the tree shows relative paths`,
+          );
+        }
         const rename = group.resourceStates.find(
           (state) =>
             state.resourceUri.fsPath === path.join(repoRoot, renamedFileName),
@@ -208,6 +223,12 @@ suite("SCM Integration Tests", () => {
             decorationProvider.provideFileDecoration(rename.resourceUri)
               ?.tooltip,
             renameTooltip,
+          );
+          assert.ok(
+            decorationChanges.some(
+              (uri) => uri.toString() === rename.resourceUri.toString(),
+            ),
+            "Parent row decorations must refresh when revision statuses change",
           );
         }
       }
@@ -224,6 +245,7 @@ suite("SCM Integration Tests", () => {
             resource.resourceUri.fsPath.endsWith(fileName),
           );
           assert.ok(state, `Expected ${fileName} in ${customGroup.label}`);
+          assert.ok(state.command);
           for (const theme of ["light", "dark"] as const) {
             const icon: vscode.SourceControlResourceThemableDecorations["iconPath"] =
               state.decorations?.[theme]?.iconPath;
@@ -245,11 +267,32 @@ suite("SCM Integration Tests", () => {
               ? commandArgs[0]
               : (commandArgs[0] as { afterUri?: unknown }).afterUri;
           assert.ok(openedUri instanceof vscode.Uri);
-          assert.strictEqual(
-            state.resourceUri.toString(),
-            openedUri.toString(),
-            `Selecting ${fileName} must stay in ${customGroup.label}`,
-          );
+          if (badge === "D") {
+            assert.strictEqual(
+              state.resourceUri.toString(),
+              vscode.Uri.joinPath(rootUri, deletedFileName).toString(),
+              "Deleted files must stay under their repository-relative folder",
+            );
+            assert.strictEqual(openedUri.scheme, "jj");
+            await vscode.commands.executeCommand(
+              state.command.command,
+              ...commandArgs,
+            );
+            const input =
+              vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+            assert.ok(input instanceof vscode.TabInputText);
+            assert.strictEqual(input.uri.toString(), openedUri.toString());
+            const document = await vscode.workspace.openTextDocument(input.uri);
+            assert.strictEqual(document.getText(), "to delete\n");
+          } else if (customGroup === repoSCM.customViewResourceGroups[0]) {
+            assert.strictEqual(
+              state.resourceUri.toString(),
+              openedUri.toString(),
+              `Selecting ${fileName} must stay in ${customGroup.label}`,
+            );
+          } else {
+            assert.strictEqual(openedUri.scheme, "jj");
+          }
         }
       }
       assert.strictEqual(
@@ -344,6 +387,7 @@ suite("SCM Integration Tests", () => {
         "Expected the next click to switch back to the diff",
       );
     } finally {
+      decorationSubscription.dispose();
       await configuration.update(
         "customViews",
         undefined,

@@ -7,7 +7,7 @@ import {
   ThemeColor,
 } from "vscode";
 import type { FileStatus, FileStatusType } from "./types";
-import { getParams, toJJUri } from "./uri";
+import { getParams, getSCMRevision, toJJUri, toSCMUri } from "./uri";
 import { normalizePath } from "./utils";
 
 const colorOfType = (type: FileStatusType) => {
@@ -120,7 +120,7 @@ export class JJDecorationProvider implements FileDecorationProvider {
         "provideFileDecoration was called before data was available",
       );
     }
-    let rev = "@";
+    let rev = getSCMRevision(uri) ?? "@";
     if (uri.scheme === "jj") {
       const params = getParams(uri);
       if ("diffOriginalRev" in params) {
@@ -202,9 +202,12 @@ export class JJDecorationProvider implements FileDecorationProvider {
     }
 
     const changedUris = [
-      ...[...changedDecorationKeys.keys()].map((key) => {
+      ...[...changedDecorationKeys.keys()].flatMap((key) => {
         const { fsPath, rev } = parseKey(key);
-        return toJJUri(Uri.file(fsPath), { rev });
+        return [
+          toJJUri(Uri.file(fsPath), { rev }),
+          toSCMUri(Uri.file(fsPath), rev),
+        ];
       }),
       ...[...changedDecorationKeys.keys()]
         .filter((key) => {
