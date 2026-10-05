@@ -102,6 +102,8 @@ without installing it, use `npm run package`.
 VS Code removes a diff's navigation entry when its preview tab is replaced.
 This optional companion patches the native history in memory so jj diffs remain
 reachable with the existing Back/Forward commands while using one preview tab.
+It also makes Explorer follow historical files and diffs, selecting the matching
+workspace file using your existing auto-reveal settings without moving focus.
 It does not change the installed application files or your keybindings.
 
 Build and install the automatic companion from this repository with Node.js 22+:
@@ -118,7 +120,7 @@ reconnects after window reloads. Diagnostics are available in the **JJK Native
 Diff History** output channel.
 
 This uses a local debugger to patch private workbench internals. It is tested on
-VS Code 1.138.0; other builds may need changes. The port provides control over
+VS Code 1.139.1; other builds may need changes. The port provides control over
 the editor to local processes while VS Code is running.
 
 To remove the workaround, uninstall **JJK Native Diff History**, remove the

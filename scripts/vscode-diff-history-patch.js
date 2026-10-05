@@ -12,6 +12,8 @@
     throw new Error("Unsupported VS Code navigation stack");
   }
 
+  patchExplorerSelection(stack);
+
   const patchedHelpers = new WeakSet();
   const prototype = Object.getPrototypeOf(stack);
   const addOrReplace = prototype.addOrReplace;
@@ -22,6 +24,54 @@
   patchHelper(stack);
   globalThis.__jjkDiffHistoryInstalled = true;
   return "installed";
+
+  function patchExplorerSelection(navigationStack) {
+    const instantiationService =
+      navigationStack.editorService?.instantiationService;
+    let explorerService;
+    for (let scope = instantiationService; scope; scope = scope._parent) {
+      const entries = scope._services?._entries;
+      if (!(entries instanceof Map)) {
+        continue;
+      }
+      const id = [...entries.keys()].find(
+        (key) => String(key) === "explorerService",
+      );
+      if (id) {
+        explorerService = instantiationService.invokeFunction((accessor) =>
+          accessor.get(id),
+        );
+        break;
+      }
+    }
+    if (typeof explorerService?.select !== "function") {
+      throw new Error("Unsupported VS Code Explorer service");
+    }
+
+    const select = explorerService.select;
+    const selectHistoricalResource = function (resource, reveal) {
+      // Keep Explorer's normal focus, scrolling, and exclusion behavior; only
+      // translate historical editor URIs to their corresponding workspace paths.
+      if (resource?.scheme === "jj") {
+        resource = resource.with({ scheme: "file", query: "", fragment: "" });
+      }
+      return select.call(this, resource, reveal);
+    };
+    explorerService.select = selectHistoricalResource;
+    // Lazy service proxies cache bound methods separately from their instance.
+    Object.defineProperty(explorerService, "select", {
+      value: selectHistoricalResource,
+      configurable: true,
+      writable: true,
+    });
+    // The active-editor event that installed the hook may have already reached Explorer.
+    explorerService.view?.selectActiveFile().catch((error) => {
+      navigationStack.logService.warn(
+        "JJK: failed to reveal historical file",
+        error,
+      );
+    });
+  }
 
   function patchHelper(navigationStack) {
     const helper = navigationStack.editorHelper;

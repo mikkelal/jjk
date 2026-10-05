@@ -5,6 +5,7 @@ import * as vscode from "vscode";
 import { execJJPromise } from "./utils";
 import { getExtensionAPI } from "./extensionApi";
 import type { ResourceViewCommandArgs } from "../types";
+import { assertExplorerSelection, readExplorerState } from "./explorerState";
 
 // Run with scripts/test-vscode-diff-history.mjs, which installs the native hook.
 suite("Native diff navigation history", () => {
@@ -164,6 +165,116 @@ suite("Native diff navigation history", () => {
     assertDiff(resources[1]);
     await forward();
     assertDiff(resources[1]);
+  });
+
+  test("Explorer follows historical files and Back/Forward without moving focus", async () => {
+    const api = await getExtensionAPI();
+    await vscode.commands.executeCommand("workbench.view.explorer");
+    for (const resource of resources.slice(0, 2)) {
+      await vscode.commands.executeCommand(
+        "vscode.open",
+        api.uri.toJJUri(resource.afterUri, { rev: "@-" }),
+      );
+      await assertExplorerSelection(path.basename(resource.afterUri.fsPath));
+    }
+    await back();
+    await assertExplorerSelection("first.txt");
+    await forward();
+    await assertExplorerSelection("second.txt");
+  });
+
+  test("Explorer follows historical diffs and Back/Forward without moving focus", async () => {
+    const api = await getExtensionAPI();
+    await vscode.commands.executeCommand("workbench.view.explorer");
+    const historic = resources.map((resource) => ({
+      beforeUri: api.uri.toJJUri(resource.afterUri, { rev: "@--" }),
+      afterUri: api.uri.toJJUri(resource.afterUri, { rev: "@-" }),
+      title: "Previous revision",
+    }));
+    await vscode.commands.executeCommand(
+      "vscode.diff",
+      historic[0].beforeUri,
+      historic[0].afterUri,
+    );
+    await assertExplorerSelection("first.txt");
+    await vscode.commands.executeCommand(
+      "vscode.diff",
+      historic[1].beforeUri,
+      historic[1].afterUri,
+    );
+    await assertExplorerSelection("second.txt");
+    await back();
+    await assertExplorerSelection("first.txt");
+    await forward();
+    await assertExplorerSelection("second.txt");
+  });
+
+  test("Explorer respects disabled auto-reveal and excluded historical files", async () => {
+    const api = await getExtensionAPI();
+    const configuration = vscode.workspace.getConfiguration("explorer");
+    await vscode.commands.executeCommand("workbench.view.explorer");
+    await vscode.commands.executeCommand("vscode.open", resources[0].afterUri);
+    await assertExplorerSelection("first.txt");
+    try {
+      await configuration.update(
+        "autoReveal",
+        false,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      await vscode.commands.executeCommand(
+        "vscode.open",
+        api.uri.toJJUri(resources[1].afterUri, { rev: "@-" }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await assertExplorerSelection("first.txt");
+      await configuration.update(
+        "autoRevealExclude",
+        { "**/third.txt": true },
+        vscode.ConfigurationTarget.Workspace,
+      );
+      await configuration.update(
+        "autoReveal",
+        "focusNoScroll",
+        vscode.ConfigurationTarget.Workspace,
+      );
+      await vscode.commands.executeCommand(
+        "vscode.open",
+        api.uri.toJJUri(resources[2].afterUri, { rev: "@-" }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      await assertExplorerSelection("first.txt");
+      await vscode.commands.executeCommand(
+        "vscode.open",
+        api.uri.toJJUri(resources[1].afterUri, { rev: "@--" }),
+      );
+      await assertExplorerSelection("second.txt");
+    } finally {
+      await configuration.update(
+        "autoReveal",
+        undefined,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      await configuration.update(
+        "autoRevealExclude",
+        undefined,
+        vscode.ConfigurationTarget.Workspace,
+      );
+    }
+  });
+
+  test("historical files do not open a hidden Explorer", async () => {
+    const api = await getExtensionAPI();
+    await vscode.commands.executeCommand("workbench.view.scm");
+    await vscode.commands.executeCommand(
+      "vscode.open",
+      api.uri.toJJUri(resources[0].afterUri, { rev: "@-" }),
+    );
+    assert.strictEqual((await readExplorerState()).visible, false);
+    await vscode.commands.executeCommand("workbench.view.explorer");
+    await vscode.commands.executeCommand(
+      "workbench.action.focusActiveEditorGroup",
+    );
+    await assertExplorerSelection("first.txt");
   });
 });
 

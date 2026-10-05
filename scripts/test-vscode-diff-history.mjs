@@ -1,7 +1,7 @@
 import { build } from "esbuild";
 import { runTests } from "@vscode/test-electron";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -32,7 +32,9 @@ await build({
   external: ["vscode", "mocha"],
 });
 
-const root = await mkdtemp(path.join(tmpdir(), "jjk-diff-history-repo-"));
+const root = await realpath(
+  await mkdtemp(path.join(tmpdir(), "jjk-diff-history-repo-")),
+);
 const userData = await mkdtemp(path.join(tmpdir(), "jjk-diff-history-user-"));
 execFileSync("jj", ["git", "init", root]);
 const ready = path.join(root, ".jj", "history-hook-ready");
@@ -92,8 +94,16 @@ await Promise.all([
       : project,
     extensionTestsPath: path.join(output, "runner.js"),
     extensionTestsEnv: automatic
-      ? { JJK_DIFF_HISTORY_AUTOMATIC: "1", VSCODE_PORTABLE: userData }
-      : { JJK_DIFF_HISTORY_READY: ready, VSCODE_PORTABLE: userData },
+      ? {
+          JJK_DIFF_HISTORY_AUTOMATIC: "1",
+          JJK_TEST_DEBUG_PORT: String(port),
+          VSCODE_PORTABLE: userData,
+        }
+      : {
+          JJK_DIFF_HISTORY_READY: ready,
+          JJK_TEST_DEBUG_PORT: String(port),
+          VSCODE_PORTABLE: userData,
+        },
     launchArgs,
   }),
   automatic ? Promise.resolve() : installHook(),
