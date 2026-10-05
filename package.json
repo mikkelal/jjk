@@ -715,7 +715,7 @@
     "install:local": "npm run package && code --install-extension jjk-local.vsix --force",
     "vscode:diff-history": "node scripts/vscode-diff-history.mjs",
     "package:diff-history": "node scripts/package-vscode-diff-history.mjs",
-    "test:diff-history": "npm run compile && node scripts/test-vscode-diff-history.mjs",
+    "test:diff-history": "npm run compile && node --test scripts/scm-view-state.test.mjs && node scripts/test-vscode-diff-history.mjs",
     "vscode:prepublish": "npm run build",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",

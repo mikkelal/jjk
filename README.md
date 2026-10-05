@@ -104,6 +104,10 @@ This optional companion patches the native history in memory so jj diffs remain
 reachable with the existing Back/Forward commands while using one preview tab.
 It also makes Explorer follow historical files and diffs, selecting the matching
 workspace file using your existing auto-reveal settings without moving focus.
+The Working Copy, Parent Commit, and custom Changes lists retain their expanded
+folders, collapsed groups, and selected file when switching commits. State is
+remembered for the current window session; files missing from a revision are
+selected again if they return in a later revision.
 It does not change the installed application files or your keybindings.
 
 Build and install the automatic companion from this repository with Node.js 22+:

@@ -3,11 +3,13 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
+import { installScmViewState } from "./scm-view-state.mjs";
 
-const patch = await readFile(
+const historyPatch = await readFile(
   new URL("./vscode-diff-history-patch.js", import.meta.url),
   "utf8",
 );
+const patch = `const installScmViewState = ${installScmViewState.toString()};\n${historyPatch}`;
 
 // Attach only to a locally launched workbench. Nothing is written to the app bundle.
 export async function patchWindow(debuggerUrl, onArmed = () => {}) {

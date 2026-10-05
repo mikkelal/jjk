@@ -60,6 +60,9 @@ const launchArgs = [
   root,
   `--user-data-dir=${userData}`,
   "--disable-extensions",
+  "--disable-workspace-trust",
+  "--skip-welcome",
+  "--skip-release-notes",
 ];
 if (!automatic) {
   launchArgs.push(`--remote-debugging-port=${port}`);

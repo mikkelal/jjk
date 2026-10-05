@@ -13,6 +13,15 @@
   }
 
   patchExplorerSelection(stack);
+  const viewsService = getService(stack, "viewsService");
+  const patchScmView = () =>
+    installScmViewState(viewsService.getViewWithId("workbench.scm"));
+  viewsService.onDidChangeViewVisibility(({ id, visible }) => {
+    if (id === "workbench.scm" && visible) {
+      patchScmView();
+    }
+  });
+  patchScmView();
 
   const patchedHelpers = new WeakSet();
   const prototype = Object.getPrototypeOf(stack);
@@ -26,24 +35,7 @@
   return "installed";
 
   function patchExplorerSelection(navigationStack) {
-    const instantiationService =
-      navigationStack.editorService?.instantiationService;
-    let explorerService;
-    for (let scope = instantiationService; scope; scope = scope._parent) {
-      const entries = scope._services?._entries;
-      if (!(entries instanceof Map)) {
-        continue;
-      }
-      const id = [...entries.keys()].find(
-        (key) => String(key) === "explorerService",
-      );
-      if (id) {
-        explorerService = instantiationService.invokeFunction((accessor) =>
-          accessor.get(id),
-        );
-        break;
-      }
-    }
+    const explorerService = getService(navigationStack, "explorerService");
     if (typeof explorerService?.select !== "function") {
       throw new Error("Unsupported VS Code Explorer service");
     }
@@ -71,6 +63,24 @@
         error,
       );
     });
+  }
+
+  function getService(navigationStack, name) {
+    const instantiationService =
+      navigationStack.editorService?.instantiationService;
+    for (let scope = instantiationService; scope; scope = scope._parent) {
+      const entries = scope._services?._entries;
+      if (!(entries instanceof Map)) {
+        continue;
+      }
+      const id = [...entries.keys()].find((key) => String(key) === name);
+      if (id) {
+        return instantiationService.invokeFunction((accessor) =>
+          accessor.get(id),
+        );
+      }
+    }
+    throw new Error(`Unsupported VS Code service: ${name}`);
   }
 
   function patchHelper(navigationStack) {

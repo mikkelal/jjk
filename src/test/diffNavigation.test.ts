@@ -6,6 +6,7 @@ import { execJJPromise } from "./utils";
 import { getExtensionAPI } from "./extensionApi";
 import type { ResourceViewCommandArgs } from "../types";
 import { assertExplorerSelection, readExplorerState } from "./explorerState";
+import { readWorkbenchState } from "./workbenchState";
 
 // Run with scripts/test-vscode-diff-history.mjs, which installs the native hook.
 suite("Native diff navigation history", () => {
@@ -276,7 +277,157 @@ suite("Native diff navigation history", () => {
     );
     await assertExplorerSelection("first.txt");
   });
+
+  test("Changes lists retain collapse state and file selection across commit switches", async function () {
+    this.timeout(30_000);
+    const configuration = vscode.workspace.getConfiguration();
+    const current = (
+      await execJJPromise('log -r @ --no-graph -T "change_id"', {
+        cwd: repoRoot,
+      })
+    ).stdout.trim();
+    await configuration.update(
+      "jjk.customViews",
+      [{ name: "Branch Changes", from: "root()" }],
+      vscode.ConfigurationTarget.Global,
+    );
+    await configuration.update(
+      "scm.autoReveal",
+      false,
+      vscode.ConfigurationTarget.Global,
+    );
+    try {
+      await vscode.commands.executeCommand("workbench.view.scm");
+      await refreshScm();
+      for (const label of ["Working Copy", "Parent Commit", "Branch Changes"]) {
+        await focusGroup(label);
+        await vscode.commands.executeCommand("list.collapse");
+        await waitForScm((rows) =>
+          rows.some(
+            (row) => row.label.includes(label) && row.expanded === "false",
+          ),
+        );
+      }
+      await execJJPromise("edit @-", { cwd: repoRoot });
+      await refreshScm();
+      await waitForScm((rows) =>
+        ["Working Copy", "Parent Commit", "Branch Changes"].every((label) =>
+          rows.some(
+            (row) => row.label.includes(label) && row.expanded === "false",
+          ),
+        ),
+      );
+
+      for (const label of ["Working Copy", "Parent Commit", "Branch Changes"]) {
+        await focusGroup(label);
+        await vscode.commands.executeCommand("list.expand");
+        await vscode.commands.executeCommand("list.focusDown");
+        await vscode.commands.executeCommand("list.select");
+        await waitForScm((rows) =>
+          rows.some(
+            (row) =>
+              row.selected &&
+              row.label.includes("first.txt") &&
+              row.group.includes(label),
+          ),
+        );
+        await execJJPromise(`edit ${current}`, { cwd: repoRoot });
+        await refreshScm();
+        await waitForScm((rows) =>
+          rows.some(
+            (row) =>
+              row.selected &&
+              row.label.includes("first.txt") &&
+              row.group.includes(label),
+          ),
+        );
+        await execJJPromise("edit @-", { cwd: repoRoot });
+        await refreshScm();
+        await waitForScm((rows) =>
+          rows.some(
+            (row) =>
+              row.selected &&
+              row.label.includes("first.txt") &&
+              row.group.includes(label),
+          ),
+        );
+      }
+    } finally {
+      await execJJPromise(`edit ${current}`, { cwd: repoRoot });
+      await configuration.update(
+        "jjk.customViews",
+        undefined,
+        vscode.ConfigurationTarget.Global,
+      );
+      await configuration.update(
+        "scm.autoReveal",
+        undefined,
+        vscode.ConfigurationTarget.Global,
+      );
+      await refreshScm();
+    }
+  });
 });
+
+interface ScmRow {
+  label: string;
+  expanded: string | null;
+  selected: boolean;
+  group: string;
+}
+
+async function readScmRows(): Promise<ScmRow[]> {
+  return readWorkbenchState<ScmRow[]>(
+    `(() => {
+      let group = '';
+      return [...document.querySelectorAll('.scm-view .monaco-list-row')]
+        .sort((left, right) => Number(left.dataset.index) - Number(right.dataset.index))
+        .map(row => {
+          const label = row.getAttribute('aria-label') ?? row.textContent;
+          if (/^(Working Copy|Parent Commit|View:)/.test(label)) group = label;
+          return {label, expanded: row.getAttribute('aria-expanded'), selected: row.classList.contains('selected'), group};
+        });
+    })()`,
+  );
+}
+
+async function waitForScm(predicate: (rows: ScmRow[]) => boolean) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const rows = await readScmRows();
+    if (predicate(rows)) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.fail(JSON.stringify(await readScmRows()));
+}
+
+async function refreshScm() {
+  await vscode.commands.executeCommand("jj.refresh");
+  const repo = (await getExtensionAPI()).workspaceSCM.repoSCMs[0];
+  const labels = [
+    repo.workingCopyResourceGroup.label,
+    ...repo.parentResourceGroups.map((group) => group.label),
+  ];
+  // The extension host can finish before the workbench has replaced its rows.
+  await waitForScm((rows) =>
+    labels.every((label) => rows.some((row) => row.label === label)),
+  );
+}
+
+async function focusGroup(label: string) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await vscode.commands.executeCommand(
+      "workbench.scm.action.focusNextResourceGroup",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (
+      (await readScmRows()).some(
+        (row) => row.selected && row.label.includes(label),
+      )
+    )
+      return;
+  }
+  assert.fail(`Cannot focus ${label}: ${JSON.stringify(await readScmRows())}`);
+}
 
 async function waitForHistoryHook() {
   if (process.env.JJK_DIFF_HISTORY_AUTOMATIC === "1") {

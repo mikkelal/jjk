@@ -26,7 +26,7 @@ export async function prepareCompanionExtension() {
         description:
           "Keep jj diff previews in VS Code's native Back/Forward history.",
         publisher: "jjk",
-        version: "0.2.0",
+        version: "0.3.0",
         license: "MIT",
         engines: { vscode: "^1.138.0" },
         extensionKind: ["ui"],
@@ -36,6 +36,7 @@ export async function prepareCompanionExtension() {
           "extension.cjs",
           "vscode-diff-history.mjs",
           "vscode-diff-history-patch.js",
+          "scm-view-state.mjs",
           "README.md",
           "LICENSE",
         ],
@@ -79,6 +80,10 @@ export async function prepareCompanionExtension() {
     path.join(companionPath, "vscode-diff-history-patch.js"),
   );
   await copyFile(
+    path.join(project, "scripts", "scm-view-state.mjs"),
+    path.join(companionPath, "scm-view-state.mjs"),
+  );
+  await copyFile(
     path.join(project, "LICENSE"),
     path.join(companionPath, "LICENSE"),
   );
@@ -91,6 +96,10 @@ in the native Back/Forward history. Application files and keybindings are unchan
 Explorer also follows historical files and diffs using the existing auto-reveal
 settings, without moving keyboard focus. Files absent from the workspace have no
 matching Explorer entry to select.
+
+The Working Copy, Parent Commit, and custom Changes lists remember their expanded
+folders, collapsed groups, and selected file across commit switches during the
+window session. A missing file can be selected again when it returns.
 
 Use **Preferences: Configure Runtime Arguments** to add
 \`"remote-debugging-port": "9347"\` to argv.json, then quit and restart VS Code.
